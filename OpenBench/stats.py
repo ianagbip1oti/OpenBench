@@ -88,13 +88,19 @@ def ELO(wins, losses, draws):
 def sort_by_puct(tests):
     total_visits = sum(test.games for test in tests)
     sqrt_total_visits = math.sqrt(total_visits)
-    explore_coef = 2.25 * sqrt_total_visits
+    explore_coef = 1.0 * sqrt_total_visits
+
+    min_priority = min(test.priority for test in tests)
 
     def puct(test):
-        llr = test.currentllr if test.test_mode == "SPRT" else 0
-        sum_rewards = llr * test.games
+        llr = (
+            test.currentllr / test.upperllr
+            if test.test_mode == "SPRT"
+            else 0
+        )
+        sum_rewards = llr * (test.games + 1)
         child_visits = test.games
-        policy = test.priority
+        policy = test.priority - min_priority + 1
 
         return (sum_rewards + explore_coef * policy) / (child_visits + 1)
 
