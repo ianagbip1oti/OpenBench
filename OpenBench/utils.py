@@ -30,6 +30,7 @@ from django.contrib.auth import authenticate
 
 from OpenBench.config import *
 from OpenBench.models import Engine, Profile, Machine, Result, Test, Network
+from OpenBench.stats import sort_by_puct
 
 
 def pathjoin(*args):
@@ -72,7 +73,7 @@ def getActiveTests():
     active = OpenBench.models.Test.objects.filter(approved=True)
     active = active.exclude(finished=True)
     active = active.exclude(deleted=True)
-    return active.order_by('-priority', '-currentllr')
+    return sort_by_puct(active)
 
 def getCompletedTests():
     completed = OpenBench.models.Test.objects.filter(finished=True)
@@ -366,16 +367,11 @@ def selectWorkload(tests, machine):
         basethreads = int(extractOption(test.baseoptions, 'Threads'))
         if max(devthreads, basethreads) > machine.threads: continue
 
-        # First Test or a higher priority Test
-        if not options or test.priority > highest:
-            highest = test.priority; options = [test]
-
-        # Another Test with an equal priority
-        elif options and test.priority == highest:
-            options.append(test)
+        options.append(test)
 
     if len(options) == 0: return 'None'
-    return random.choice(options)
+
+    return sort_by_puct(options)[0]
 
 def workloadDictionary(test, result, machine):
 

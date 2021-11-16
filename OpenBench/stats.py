@@ -44,22 +44,21 @@ def proba_to_bayeselo(pwin, pdraw, ploss):
 
 
 def SPRT(wins, losses, draws, elo0, elo1):
+    adj_wins = wins + 1
+    adj_losses = losses + 1
+    adj_draws = draws + 1
 
-    # Estimate drawelo out of sample. Return LLR = 0.0 if there are not enough
-    # games played yet to compute an LLR. 0.0 will always be an active state
-    if wins > 0 and losses > 0 and draws > 0:
-        N = wins + losses + draws
-        elo, drawelo = proba_to_bayeselo(float(wins)/N, float(draws)/N, float(losses)/N)
-    else: return 0.00
+    N = adj_wins + adj_losses + adj_draws
+    elo, drawelo = proba_to_bayeselo(float(adj_wins)/N, float(adj_draws)/N, float(adj_losses)/N)
 
     # Probability laws under H0 and H1
     p0win, p0draw, p0loss = bayeselo_to_proba(elo0, drawelo)
     p1win, p1draw, p1loss = bayeselo_to_proba(elo1, drawelo)
 
     # Log-Likelyhood Ratio
-    return    wins * math.log(p1win  /  p0win) \
-          + losses * math.log(p1loss / p0loss) \
-          +  draws * math.log(p1draw / p0draw)
+    return    adj_wins * math.log(p1win  /  p0win) \
+          + adj_losses * math.log(p1loss / p0loss) \
+          +  adj_draws * math.log(p1draw / p0draw)
 
 def ELO(wins, losses, draws):
 
@@ -85,3 +84,19 @@ def ELO(wins, losses, draws):
     mu_max = mu + phi_inv(0.975) * stdev
 
     return (_elo(mu_min), _elo(mu), _elo(mu_max))
+
+def sort_by_puct(tests):
+    total_visits = sum(test.games for test in tests)
+    sqrt_total_visits = math.sqrt(total_visits)
+    explore_coef = 2.25 * sqrt_total_visits
+
+    def puct(test):
+        llr = test.currentllr if test.test_mode == "SPRT" else 0
+        sum_rewards = llr * test.games
+        child_visits = test.games
+        policy = test.priority
+
+        return (sum_rewards + explore_coef * policy) / (child_visits + 1)
+
+    return sorted(tests, key=lambda t: -puct(t))
+
